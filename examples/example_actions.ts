@@ -1,5 +1,5 @@
 import ollama from 'ollama'
-
+import FileSystemClient from '../src/mcp/filesystem_client.ts'
 const backticks = "```"
 
 // ===
@@ -67,11 +67,14 @@ When performing string matches or filtering, make sure you use an appropriate 'a
 double-check your results: for example, 'regex' or 'string_match'.
 `
 
+const client = new FileSystemClient()
+await client.connect()
+
 const model = 'gemma3:4b'
 // const model = 'llama3.1:8b'
 // const model = 'qwen2.5:7b'
 
-const messages = []
+const messages: { role: string, content: string }[] = []
 
 async function chat() {
     const response = await ollama.chat({ model: model, messages: messages, stream: true })
@@ -98,3 +101,27 @@ console.log(message2.content)
 console.log("---------------- ASSISTANT:\n");
 await chat()
 console.log()
+
+console.log("---------------- USER:\n");
+const tools = await client.listTools()
+const tools_block = `${backticks}\n${JSON.stringify(tools, null, 2)}\n${backticks}\n`
+let content = `Here is the list of available actions:\n${tools_block}`
+const message3 = { role: 'user', content: content }
+messages.push(message3)
+console.log(message3.content)
+
+console.log("---------------- ASSISTANT:\n");
+await chat()
+console.log()
+
+console.log("---------------- USER:\n");
+content = "Can you tell me what directories are allowed to use?"
+const message4 = { role: 'user', content: content }
+messages.push(message4)
+console.log(message4.content)
+
+console.log("---------------- ASSISTANT:\n");
+await chat()
+console.log()
+
+client.close()
