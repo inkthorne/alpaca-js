@@ -1,5 +1,7 @@
 import ollama from 'ollama'
 import FileSystemClient from '../src/mcp/filesystem_client.ts'
+import { AlpacaSession } from '../src/session.ts'
+
 const backticks = "```"
 
 // ===
@@ -10,19 +12,19 @@ const SYS_PROMPT = String.raw`
 You are a helpful and friendly assistant. You excel at following instructions,
 answering questions, and working step-by-step through problems.
 
-You are proficient at using 'actions' like reading a file, listing the contents
-of a directory, or fetching a web-page. These 'actions' help you collect information
+You are proficient at using 'tools' like reading a file, listing the contents
+of a directory, or fetching a web-page. These 'tools' help you collect information
 that is external to you, allowing you to answer questions and complete tasks more
 quickly and more accurately than if you were to only use your internal knowledge alone.
 
-## How to Use Actions
+## How to Use Tools
 
-You will need to use 'actions' to successfully complete tasks. Use the following
-JSON block to invoke the 'list_actions' action to get a list of all the actions
+You will need to use 'tools' to successfully complete tasks. Use the following
+JSON block to invoke the 'list_tools' tool to get a list of all the actions
 that are available to you:
 ${backticks}json
 {
-    "action": "list_actions"
+    "invoke": "list_tools"
 }
 ${backticks}
 
@@ -67,6 +69,7 @@ When performing string matches or filtering, make sure you use an appropriate 'a
 double-check your results: for example, 'regex' or 'string_match'.
 `
 
+
 const client = new FileSystemClient()
 await client.connect()
 
@@ -74,54 +77,18 @@ const model = 'gemma3:4b'
 // const model = 'llama3.1:8b'
 // const model = 'qwen2.5:7b'
 
-const messages: { role: string, content: string }[] = []
+const session = new AlpacaSession(model)
+await session.user(SYS_PROMPT)
 
-async function chat() {
-    const response = await ollama.chat({ model: model, messages: messages, stream: true })
-
-    for await (const part of response) {
-        process.stdout.write(part.message.content)
-    }
-}
-
-console.log("--------------- SYSTEM:");
-const message = { role: 'system', content: SYS_PROMPT }
-messages.push(message)
-console.log(SYS_PROMPT)
-
-console.log("---------------- ASSISTANT:\n");
-await chat()
-console.log()
-
-console.log("---------------- USER:\n");
-const message2 = { role: 'user', content: USER_QUERY_1 }
-messages.push(message2)
-console.log(message2.content)
-
-console.log("---------------- ASSISTANT:\n");
-await chat()
-console.log()
-
-console.log("---------------- USER:\n");
 const tools = await client.listTools()
-const tools_block = `${backticks}\n${JSON.stringify(tools, null, 2)}\n${backticks}\n`
-let content = `Here is the list of available actions:\n${tools_block}`
-const message3 = { role: 'user', content: content }
-messages.push(message3)
-console.log(message3.content)
+const tools_block = session.blockify(tools)
+let content = `Here is the list of available tools:\n\n${tools_block}`
+await session.user(content)
 
-console.log("---------------- ASSISTANT:\n");
-await chat()
-console.log()
+content = "How many tools are in the list?"
+await session.user(content)
 
-console.log("---------------- USER:\n");
-content = "Can you tell me what directories are allowed to use?"
-const message4 = { role: 'user', content: content }
-messages.push(message4)
-console.log(message4.content)
-
-console.log("---------------- ASSISTANT:\n");
-await chat()
-console.log()
+content = "Can you show me which directories are available?"
+await session.user(content)
 
 client.close()
